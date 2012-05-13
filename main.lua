@@ -16,6 +16,7 @@ editmodes =
 	"addstem",
 	"editstem",
 	"addblossom",
+	"editblossom",
 	"save",
 	"reset",
 }
@@ -68,6 +69,8 @@ end
 
 function editstem:mousereleased(x,y,btn)
 	--copy the data forward
+
+
 	for i=currentstate+1,states do
 		data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
 		data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
@@ -86,6 +89,54 @@ function editstem:update(dt)
 		data[currentstate].stems[self.dragstem][self.dragvert] = { cam:worldCoords(love.mouse.getPosition()) } 
 	end
 end
+
+
+editblossom = Gamestate.new()
+	
+function editblossom:init()
+end
+
+function editblossom:enter()
+	editstate = "release button when done"
+end
+
+function editblossom:mousepressed(x,y,btn)
+	for i,blossom in ipairs(data[currentstate].blossompoints) do
+		
+		local vdist = vector(blossom) - vector(cam:worldCoords(x,y))
+		if vdist:len() < 5 then 
+			self.dragblossom = i
+			return
+		end 
+
+
+	end
+end
+
+function editblossom:mousereleased(x,y,btn)
+	--copy the data forward
+	for i=currentstate+1,states do
+		if data[i] then
+			if data[i].blossompoints == nil then
+				data[i].blossompoints = {}
+			end
+			data[i].blossompoints[self.dragblossom][1] = data[currentstate].blossompoints[self.dragblossom][1]
+			data[i].blossompoints[self.dragblossom][2] = data[currentstate].blossompoints[self.dragblossom][2]
+		end
+	end
+
+	self.dragblossom = nil
+
+	Gamestate.switch(waiting)
+
+end
+
+function editblossom:update(dt)
+	if self.dragblossom then
+		data[currentstate].blossompoints[self.dragblossom] = { cam:worldCoords(love.mouse.getPosition()) } 
+	end
+end
+
 
 
 save = Gamestate.new()
@@ -168,6 +219,9 @@ function waiting:mousepressed(x,y, btn)
 		if editmodes[currentmode] == "editstem" then
 			editstem:mousepressed(x,y,btn)
 		end
+		if editmodes[currentmode] == "editblossom" then
+			editblossom:mousepressed(x,y,btn)
+		end
 	end
 end
 
@@ -187,7 +241,19 @@ function addblossom:mousereleased(x,y,btn)
 
 	end
 
-	table.insert(data[currentstate].blossompoints, {cam:worldCoords(x,y)})
+	local stuff = {cam:worldCoords(x,y)}
+	table.insert(data[currentstate].blossompoints, stuff)
+
+	--copy forward, only if it exists, otherwise it'll happen elsehwere
+	for i=currentstate + 1,states do
+		if data[i] then
+			if data[i].blossompoints == nil then
+				data[i].blossompoints = {}
+			end
+			table.insert(data[i].blossompoints, copytable(stuff) )
+		end
+	end
+
 
 	Gamestate.switch(waiting)
 end
@@ -221,6 +287,14 @@ function addstem:mousereleased(x,y, mouse_btn)
 		end
 
 		table.insert( data[currentstate].stems, self.clicks )
+
+		--copy forward, only if it exists, otherwise it'll happen elsehwere
+		for i=currentstate + 1,states do
+			if data[i] then
+				table.insert(data[i].stems, copytable(self.clicks))
+			end
+		end
+
 		editstate = "none"
 
 		Gamestate.switch(waiting)
