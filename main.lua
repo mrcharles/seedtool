@@ -14,6 +14,7 @@ blossompointsize = 4
 editmodes = 
 {
 	"addstem",
+	"editstem",
 	"addblossom",
 	"save",
 	"reset",
@@ -33,6 +34,59 @@ local statenames = {
 }
 local currentstate = 1
 data = {}
+
+
+editstem = Gamestate.new()
+	
+function editstem:init()
+end
+
+function editstem:enter()
+	editstate = "release button when done"
+end
+
+function editstem:mousepressed(x,y,btn)
+	for i,stem in ipairs(data[currentstate].stems) do
+		
+		local vdist = vector(stem[1]) - vector(cam:worldCoords(x,y))
+		if vdist:len() < 5 then 
+			self.dragstem = i
+			self.dragvert = 1
+			return
+		end 
+
+		vdist = vector(stem[2]) - vector(cam:worldCoords(x,y))
+		if vdist:len() < 5 then 
+			self.dragstem = i
+			self.dragvert = 2
+			return
+		end 
+
+
+	end
+end
+
+function editstem:mousereleased(x,y,btn)
+	--copy the data forward
+	for i=currentstate+1,states do
+		data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
+		data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
+
+	end
+
+	self.dragstem = nil
+	self.dragvert = nil
+
+	Gamestate.switch(waiting)
+
+end
+
+function editstem:update(dt)
+	if self.dragstem and self.dragvert then
+		data[currentstate].stems[self.dragstem][self.dragvert] = { cam:worldCoords(love.mouse.getPosition()) } 
+	end
+end
+
 
 save = Gamestate.new()
 
@@ -81,6 +135,8 @@ function reset:keyreleased(key)
 			end
 			if currentstate > 1 then
 				data[currentstate] = copytable( data[ currentstate - 1])
+			else
+				data[1] = {}
 			end
 
 			Gamestate.switch(waiting)
@@ -109,6 +165,9 @@ end
 function waiting:mousepressed(x,y, btn)
 	if btn == "l" then 
 		Gamestate.switch(_G[editmodes[currentmode]])
+		if editmodes[currentmode] == "editstem" then
+			editstem:mousepressed(x,y,btn)
+		end
 	end
 end
 
