@@ -2,6 +2,9 @@ vector = require "hump.vector"
 camera = require "hump.camera"
 Gamestate = require "hump.gamestate"
 require "savevariables"
+require "spritemanager"
+require "LayeredSprite"
+
 
 stemcolor = { 255, 0, 0 }
 stempointsize = 3
@@ -13,6 +16,7 @@ blossompointsize = 4
 
 editmodes = 
 {
+	"switchfiles",
 	"addstem",
 	"editstem",
 	"addblossom",
@@ -25,24 +29,107 @@ currentmode = 1
 
 editstate = "none"
 
-local states = 4
+local states = 3
 local statenames = {
-	"SPROUT",
-	"BABY",
-	"YOUNG",
-	"MATURE"
+	"baby",
+	"young",
+	"mature"
 
 }
+
+local planttypes = 
+{
+	"bush",
+	"flower",
+	"tree"
+
+}
+
+local planttype = "flower"
 local currentstate = 1
 data = {}
 
+
+function openfile(name)
+	planttype = string.sub(name, 0, string.find(name, "_") - 1)
+	plantid = string.sub( name, string.find(name, "_")+1, string.find(name, "_") + 1)
+
+	print( planttype.. "_".. plantid)
+	plantSprite = spritemanager.createSprite(planttype.."_"..plantid, planttype.."_baby")
+
+	for i=1,4 do
+		data[1] = {}
+	end
+end
+
+switchfiles = Gamestate.new()
+
+
+
+function switchfiles:init()
+
+	--return fileTree
+	self.files = {}
+	local lfs = love.filesystem
+	local filesTable = lfs.enumerate("res/sprites/")
+	for i,v in ipairs(filesTable) do
+	    local file = "res/sprites/"..v
+	    if lfs.isFile(file) then
+	        if string.sub(v, -4) == ".lua" then
+	        	for i=1,#planttypes do
+	        		--print( )
+	        		if string.sub(v, 0, #(planttypes[i]) ) == planttypes[i] then
+	        			print( "found "..v)
+	        			table.insert(self.files, v)
+	        		end
+	        	end
+	        end
+	    end
+	end
+	self.fileindex = 1
+end
+
+function switchfiles:enter(previous)
+	editstate = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
+
+end
+
+function switchfiles:keyreleased(key)
+	if key == "return" then
+		if self.notsure then
+			openfile(self.files[self.fileindex])
+			Gamestate.switch(waiting)
+			currentmode = currentmode + 1 
+		else
+			self.notsure = true
+			editstate = "WARNING: SWITCHING FILES WILL WIPE ALL YOUR CHANGES. ENTER TO CONTINUE, SPACE TO CANCEL"
+		end
+	elseif key == " " then
+		Gamestate.switch(waiting)
+	end
+end
+
+function switchfiles:mousereleased(x,y,btn)
+	if btn == "l" then
+		self.fileindex = self.fileindex + 1
+		if self.fileindex > #self.files then
+			self.fileindex = 1
+		end
+	elseif btn == "r" then
+		self.fileindex = self.fileindex - 1
+		if self.fileindex < 1 then
+			self.fileindex = #self.files
+		end
+	end		
+	editstate = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
+end
 
 editstem = Gamestate.new()
 	
 function editstem:init()
 end
 
-function editstem:enter()
+function editstem:enter(previous)
 	editstate = "release button when done"
 end
 
@@ -72,9 +159,13 @@ function editstem:mousereleased(x,y,btn)
 
 
 	for i=currentstate+1,states do
-		data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
-		data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
-
+		if data[i] ~= nil then
+			if data[i].stems == nil then
+				data[i].stems = {}
+			end
+			data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
+			data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
+		end
 	end
 
 	self.dragstem = nil
@@ -145,10 +236,20 @@ function save:init()
 end
 
 function save:enter(previous)
+	--add in our sprite and animation names
+	for i=1,states do
+		data[i].sprite = string.format("%s_%s", planttype, plantid)
+		data[i].anim = string.format("%s_%s", planttype, statenames[i])
+	end
+
+
 	--save shit out and go back to waiting
+
+
+
 	print("SAVED")
 	savevariables.register("data")
-	savevariables.writeOut("flower1data.lua")
+	savevariables.writeOut( string.format("%s_%s_data.lua", planttype, plantid) )
 
 	Gamestate.switch(waiting)
 end
@@ -291,6 +392,7 @@ function addstem:mousereleased(x,y, mouse_btn)
 		--copy forward, only if it exists, otherwise it'll happen elsehwere
 		for i=currentstate + 1,states do
 			if data[i] then
+				data[i].stems = {}
 				table.insert(data[i].stems, copytable(self.clicks))
 			end
 		end
@@ -307,18 +409,16 @@ function love.load()
 	 -- assert(love.graphics.isSupported('pixeleffect'), 'Pixel effects are not supported on your hardware. Sorry about that.')
 
 	math.randomseed(os.time())
-	cam = camera(0, 0, 1, 0)
+	cam = camera(0, -100, 1, 0)
 
 	love.graphics.setBackgroundColor(255, 255, 255)
 
 	--load our sprite, and then init the data
 
-	for i=1,4 do
-		data[1] = {}
-	end
-
 	Gamestate.registerEvents()
 	Gamestate.switch(waiting)
+
+
 
 end
 
@@ -326,27 +426,32 @@ function love.draw()
 	cam:attach()
 
 	--draw our sprite, for now just a rectangle
-	love.graphics.setColor(128,128,128)
-	love.graphics.rectangle("fill", -100, -100, 200, 200)
+	--love.graphics.setColor(128,128,128)
+	--love.graphics.rectangle("fill", -100, -100, 200, 200)
 
+	if plantSprite then
 
-	--draw any data we currently have
-	if data[currentstate].stems then
-		for i,stem in ipairs(data[currentstate].stems) do
-			love.graphics.setColor(stemcolor)
-			love.graphics.circle("fill", stem[1][1], stem[1][2], stempointsize)
-			love.graphics.circle("fill", stem[2][1], stem[2][2], stempointsize)
-			love.graphics.line(stem[1][1], stem[1][2], stem[2][1], stem[2][2])
+		plantSprite:draw()
+
+		love.graphics.setColorMode("modulate")
+
+		--draw any data we currently have
+		if data[currentstate].stems then
+			for i,stem in ipairs(data[currentstate].stems) do
+				love.graphics.setColor(stemcolor)
+				love.graphics.circle("fill", stem[1][1], stem[1][2], stempointsize)
+				love.graphics.circle("fill", stem[2][1], stem[2][2], stempointsize)
+				love.graphics.line(stem[1][1], stem[1][2], stem[2][1], stem[2][2])
+			end
+		end
+
+		if data[currentstate].blossompoints then
+			for i,bp in ipairs(data[currentstate].blossompoints) do
+				love.graphics.setColor(blossomcolor)
+				love.graphics.circle("fill", bp[1], bp[2], blossompointsize)
+			end
 		end
 	end
-
-	if data[currentstate].blossompoints then
-		for i,bp in ipairs(data[currentstate].blossompoints) do
-			love.graphics.setColor(blossomcolor)
-			love.graphics.circle("fill", bp[1], bp[2], blossompointsize)
-		end
-	end
-
 
 	cam:detach()
 
@@ -376,7 +481,11 @@ function love.keyreleased( key, unicode )
 		end
 		if data[currentstate] == nil then
 			data[currentstate] = copytable( data[ currentstate - 1])
+
+
 		end
+
+		plantSprite:setAnimation(planttype.. "_"..statenames[currentstate])
 	-- elseif key == "left" then
 	-- 	currentstate = currentstate - 1
 	-- 	if currentstate < 1 then
