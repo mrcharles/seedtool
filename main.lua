@@ -16,18 +16,49 @@ blossompointsize = 4
 
 editmodes = 
 {
-	"switchfiles",
-	"addstem",
-	"editstem",
-	"addblossom",
-	"editblossom",
-	"save",
-	"reset",
+	f1 = 
+	{
+		activate = true,
+		commands = { "open" },
+	},
+	f2 = 
+	{
+		commands = 
+		{
+			"addstem",
+			"editstem",
+		},
+	},
+	f3 = 
+	{
+		commands = 
+		{
+			"addblossom",
+			"editblossom",
+		},
+	},
+	f4 = 
+	{
+		activate = true,
+		commands = 
+		{
+			"reset",
+		},
+	},
+	s = 
+	{
+		activate = true,
+		commands = 
+		{
+			"save",
+		},
+	},
 }
 
-currentmode = 1
+currentmode = "f1"
+modeindex = 1
 
-editstate = "none"
+helpmsg = "none"
 
 local states = 3
 local statenames = {
@@ -62,11 +93,11 @@ function openfile(name)
 	end
 end
 
-switchfiles = Gamestate.new()
+open = Gamestate.new()
 
 
 
-function switchfiles:init()
+function open:init()
 
 	--return fileTree
 	self.files = {}
@@ -89,39 +120,37 @@ function switchfiles:init()
 	self.fileindex = 1
 end
 
-function switchfiles:enter(previous)
-	editstate = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
+function open:enter(previous)
+	helpmsg = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
 
 end
 
-function switchfiles:keyreleased(key)
-	if key == "return" then
-		if self.notsure then
-			openfile(self.files[self.fileindex])
-			Gamestate.switch(waiting)
-			currentmode = currentmode + 1 
-		else
-			self.notsure = true
-			editstate = "WARNING: SWITCHING FILES WILL WIPE ALL YOUR CHANGES. ENTER TO CONTINUE, SPACE TO CANCEL"
-		end
-	elseif key == " " then
-		Gamestate.switch(waiting)
-	end
+function open:keyreleased(key)
+	-- if key == "return" then
+	-- 	if self.notsure then
+	-- 		openfile(self.files[self.fileindex])
+	-- 		Gamestate.switch(waiting)
+	-- 		currentmode = currentmode + 1 
+	-- 	else
+	-- 		self.notsure = true
+	-- 		helpmsg = "WARNING: SWITCHING FILES WILL WIPE ALL YOUR CHANGES. ENTER TO CONTINUE, SPACE TO CANCEL"
+	-- 	end
+	-- end
 end
 
-function switchfiles:mousereleased(x,y,btn)
-	if btn == "l" then
-		self.fileindex = self.fileindex + 1
-		if self.fileindex > #self.files then
-			self.fileindex = 1
-		end
-	elseif btn == "r" then
-		self.fileindex = self.fileindex - 1
-		if self.fileindex < 1 then
-			self.fileindex = #self.files
-		end
-	end		
-	editstate = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
+function open:mousereleased(x,y,btn)
+	-- if btn == "l" then
+	-- 	self.fileindex = self.fileindex + 1
+	-- 	if self.fileindex > #self.files then
+	-- 		self.fileindex = 1
+	-- 	end
+	-- elseif btn == "r" then
+	-- 	self.fileindex = self.fileindex - 1
+	-- 	if self.fileindex < 1 then
+	-- 		self.fileindex = #self.files
+	-- 	end
+	-- end		
+	-- helpmsg = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
 end
 
 editstem = Gamestate.new()
@@ -130,7 +159,7 @@ function editstem:init()
 end
 
 function editstem:enter(previous)
-	editstate = "release button when done"
+	helpmsg = "release button when done"
 end
 
 function editstem:mousepressed(x,y,btn)
@@ -158,19 +187,20 @@ function editstem:mousereleased(x,y,btn)
 	--copy the data forward
 
 
-	for i=currentstate+1,states do
-		if data[i] ~= nil then
-			if data[i].stems == nil then
-				data[i].stems = {}
+	if self.dragstem and self.dragvert then
+		for i=currentstate+1,states do
+			if data[i] ~= nil then
+				if data[i].stems == nil then
+					data[i].stems = {}
+				end
+				data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
+				data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
 			end
-			data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
-			data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
 		end
+
+		self.dragstem = nil
+		self.dragvert = nil
 	end
-
-	self.dragstem = nil
-	self.dragvert = nil
-
 	Gamestate.switch(waiting)
 
 end
@@ -188,19 +218,21 @@ function editblossom:init()
 end
 
 function editblossom:enter()
-	editstate = "release button when done"
+	helpmsg = "release button when done"
 end
 
 function editblossom:mousepressed(x,y,btn)
-	for i,blossom in ipairs(data[currentstate].blossompoints) do
-		
-		local vdist = vector(blossom) - vector(cam:worldCoords(x,y))
-		if vdist:len() < 5 then 
-			self.dragblossom = i
-			return
-		end 
+	if data[currentstate].blossompoints then
+		for i,blossom in ipairs(data[currentstate].blossompoints) do
+			
+			local vdist = vector(blossom) - vector(cam:worldCoords(x,y))
+			if vdist:len() < 5 then 
+				self.dragblossom = i
+				return
+			end 
 
 
+		end
 	end
 end
 
@@ -260,7 +292,7 @@ function reset:init()
 end
 
 function reset:enter(previous)
-	editstate = "PRESS SPACE TO RESET"
+	helpmsg = "PRESS SPACE TO RESET"
 	self.notsure = true
 end
 
@@ -279,7 +311,7 @@ end
 function reset:keyreleased(key)
 	if key == " " then
 		if self.notsure then 
-			editstate = "ARE YOU REALLY SURE? THIS DELETES ALL LATER STATES AS WELL. PRESS SPACE AGAIN"
+			helpmsg = "ARE YOU REALLY SURE? THIS DELETES ALL LATER STATES AS WELL. PRESS SPACE AGAIN"
 			self.notsure = false
 		else
 			for i=currentstate,4 do
@@ -302,7 +334,7 @@ function waiting:init()
 end
 
 function waiting:enter(previous)
-	editstate = "waiting for left click"
+	helpmsg = "waiting for left click"
 end
 
 function waiting:mousereleased(x, y, btn)
@@ -314,16 +346,26 @@ function waiting:mousereleased(x, y, btn)
 	end
 end
 
-function waiting:mousepressed(x,y, btn)
-	if btn == "l" then 
-		Gamestate.switch(_G[editmodes[currentmode]])
-		if editmodes[currentmode] == "editstem" then
-			editstem:mousepressed(x,y,btn)
+function waiting:keypressed(key)
+	if editmodes[key] ~= nil then
+		currentmode = key
+		if editmodes[key].activate then
+			Gamestate.switch(_G[editmodes[key].commands[1]])
 		end
-		if editmodes[currentmode] == "editblossom" then
-			editblossom:mousepressed(x,y,btn)
-		end
+
 	end
+end
+
+function waiting:mousepressed(x,y, btn)
+	-- if btn == "l" then 
+	-- 	Gamestate.switch(_G[editmodes[currentmode]])
+	-- 	if editmodes[currentmode] == "editstem" then
+	-- 		editstem:mousepressed(x,y,btn)
+	-- 	end
+	-- 	if editmodes[currentmode] == "editblossom" then
+	-- 		editblossom:mousepressed(x,y,btn)
+	-- 	end
+	-- end
 end
 
 addblossom = Gamestate.new()
@@ -397,11 +439,11 @@ function addstem:mousereleased(x,y, mouse_btn)
 			end
 		end
 
-		editstate = "none"
+		helpmsg = "none"
 
 		Gamestate.switch(waiting)
 	else
-		editstate = "waitforclick"
+		helpmsg = "waitforclick"
 	end
 end
 
@@ -455,10 +497,20 @@ function love.draw()
 
 	cam:detach()
 
+	--draw help text
+
 	love.graphics.setColor(0,0,0)
-	love.graphics.printf( "CURRENT STATE:  "..statenames[currentstate], 50, 20, 700)
-	love.graphics.printf( "Editmode: "..editmodes[currentmode], 50, 40, 700)
-	love.graphics.printf( "Editstate: "..editstate, 50, 60, 700 )
+
+	love.graphics.push()
+	for k,editmode in pairs(editmodes) do
+
+		love.graphics.printf( k..": "..editmode.commands[1], 50, 20, 700)
+		love.graphics.translate(100, 0)
+	end
+	love.graphics.pop()
+
+	--love.graphics.printf( "Editmode: "..editmodes[currentmode], 50, 40, 700)
+	love.graphics.printf( "helpmsg: "..helpmsg, 50, 60, 700 )
 end
 
 function love.update(dt)
@@ -466,7 +518,7 @@ end
 
 
 function love.mousepressed(x, y, button)
-	if editstate == "none" then
+	if helpmsg == "none" then
 		if button == "l" then
 
 		end
@@ -474,7 +526,7 @@ function love.mousepressed(x, y, button)
 end
 
 function love.keyreleased( key, unicode )
-	if key == "right" then
+	if key == "right" and plantSprite then
 		currentstate = currentstate + 1
 		if currentstate > states then
 			currentstate = 1
@@ -496,7 +548,7 @@ function love.keyreleased( key, unicode )
 	elseif key == "up" then
 		cam.zoom = cam.zoom * 1.5
 	elseif key == "f1" then
-		editstate = "addblossom"
+		helpmsg = "addblossom"
 	elseif key == "f12" then
 		if SPEEDUP then
 			SPEEDUP = false
