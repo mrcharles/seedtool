@@ -478,7 +478,7 @@ function love.load()
 	math.randomseed(os.time())
 	cam = camera(0, -100, 1, 0)
 
-	love.graphics.setBackgroundColor(255, 255, 255)
+	love.graphics.setBackgroundColor(128, 255, 128)
 
 	--load our sprite, and then init the data
 
@@ -554,6 +554,10 @@ function love.update(dt)
 	--gui.group.pop()
 end
 
+zoomfactor = 1.2
+minzoom = 0.5
+maxzoom = 5
+
 
 function love.mousepressed(x, y, button)
 	if helpmsg == "none" then
@@ -561,6 +565,15 @@ function love.mousepressed(x, y, button)
 
 		end
 	end
+
+	if button == "wd" then
+		cam.zoom = math.max( cam.zoom / zoomfactor, minzoom )
+		--print("wheel down")
+	elseif button == "wu" then
+		--print("wheel up")
+		cam.zoom = math.min( cam.zoom * zoomfactor, maxzoom )
+	end
+
 end
 
 function love.keyreleased( key, unicode )
@@ -581,10 +594,10 @@ function love.keyreleased( key, unicode )
 	-- 	if currentstate < 1 then
 	-- 		currentstate = states
 	-- 	end
-	elseif key == "down" then
-		cam.zoom = cam.zoom / 1.5
-	elseif key == "up" then
-		cam.zoom = cam.zoom * 1.5
+	-- elseif key == "down" then
+	-- 	cam.zoom = cam.zoom / 1.5
+	-- elseif key == "up" then
+	-- 	cam.zoom = cam.zoom * 1.5
 	else -- check for commands
 
 		if key == currentmode then
