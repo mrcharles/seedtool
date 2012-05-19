@@ -1,6 +1,8 @@
 vector = require "hump.vector"
 camera = require "hump.camera"
 Gamestate = require "hump.gamestate"
+local gui = require "Quickie"
+
 require "savevariables"
 require "spritemanager"
 require "LayeredSprite"
@@ -16,6 +18,7 @@ blossompointsize = 4
 
 editmodes = 
 {
+
 	f1 = 
 	{
 		activate = true,
@@ -55,8 +58,8 @@ editmodes =
 	},
 }
 
-currentmode = "f1"
-modeindex = 1
+
+currentmode = ""
 
 helpmsg = "none"
 
@@ -80,6 +83,7 @@ local planttype = "flower"
 local currentstate = 1
 data = {}
 
+local plantSprite = nil
 
 function openfile(name)
 	planttype = string.sub(name, 0, string.find(name, "_") - 1)
@@ -99,7 +103,6 @@ open = Gamestate.new()
 
 function open:init()
 
-	--return fileTree
 	self.files = {}
 	local lfs = love.filesystem
 	local filesTable = lfs.enumerate("res/sprites/")
@@ -121,21 +124,50 @@ function open:init()
 end
 
 function open:enter(previous)
-	helpmsg = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
+	helpmsg = "cycle file with arrows, enter to confirm, esc to cancel"
+
+end
+
+function open:update()
+
+end
+
+function open:draw()
+
+	for i=self.fileindex-3,self.fileindex+3 do
+		if i > 0 and i <= #self.files then
+
+			if i == self.fileindex then
+				love.graphics.setColor(255,0,0)
+			else
+				local c = (math.abs(i - self.fileindex) / 4) * 255
+				love.graphics.setColor( c, c, c )
+			end
+			love.graphics.printf(self.files[i], -800, 200 + (i - self.fileindex) * -30, 1000, "right")
+		end
+
+	end
+
 
 end
 
 function open:keyreleased(key)
-	-- if key == "return" then
-	-- 	if self.notsure then
-	-- 		openfile(self.files[self.fileindex])
-	-- 		Gamestate.switch(waiting)
-	-- 		currentmode = currentmode + 1 
-	-- 	else
-	-- 		self.notsure = true
-	-- 		helpmsg = "WARNING: SWITCHING FILES WILL WIPE ALL YOUR CHANGES. ENTER TO CONTINUE, SPACE TO CANCEL"
-	-- 	end
-	-- end
+	if key == "return" then
+		if plantSprite == nil or self.notsure then
+			openfile(self.files[self.fileindex])
+			Gamestate.switch(waiting)
+			--currentmode = currentmode + 1 
+		else
+			self.notsure = true
+			helpmsg = "WARNING: SWITCHING FILES WILL WIPE ALL YOUR CHANGES. ENTER TO CONTINUE, SPACE TO CANCEL"
+		end
+	elseif key == "esc" then
+		helpmsg = "cycle file with arrows, enter to confirm, esc to cancel"
+	elseif key == "up" or key == "right" then
+		self.fileindex = math.max( self.fileindex - 1, 1 )
+	elseif key == "down" or key == "left" then
+		self.fileindex = math.min( self.fileindex + 1, #self.files )
+	end
 end
 
 function open:mousereleased(x,y,btn)
@@ -347,13 +379,6 @@ function waiting:mousereleased(x, y, btn)
 end
 
 function waiting:keypressed(key)
-	if editmodes[key] ~= nil then
-		currentmode = key
-		if editmodes[key].activate then
-			Gamestate.switch(_G[editmodes[key].commands[1]])
-		end
-
-	end
 end
 
 function waiting:mousepressed(x,y, btn)
@@ -461,6 +486,8 @@ function love.load()
 	Gamestate.switch(waiting)
 
 
+	--gui.group.default.size[1] = 75
+	--gui.group.default.size[2] = 50
 
 end
 
@@ -503,17 +530,28 @@ function love.draw()
 
 	love.graphics.push()
 	for k,editmode in pairs(editmodes) do
+		if k == currentmode then
+			love.graphics.setColor(255, 0, 0)
+		else
+			love.graphics.setColor(0,0,0)
+		end
 
-		love.graphics.printf( k..": "..editmode.commands[1], 50, 20, 700)
+
+		love.graphics.printf( k..": "..editmode.commands[editmode.command or 1], 50, 20, 700)
 		love.graphics.translate(100, 0)
 	end
 	love.graphics.pop()
 
 	--love.graphics.printf( "Editmode: "..editmodes[currentmode], 50, 40, 700)
 	love.graphics.printf( "helpmsg: "..helpmsg, 50, 60, 700 )
+
+	gui.core.draw()
 end
 
 function love.update(dt)
+	--gui.group.push{grow = "up", pos = {5, 800}}
+	gui.Button{ text = "TEST", pos = {5,765}}
+	--gui.group.pop()
 end
 
 
@@ -547,32 +585,32 @@ function love.keyreleased( key, unicode )
 		cam.zoom = cam.zoom / 1.5
 	elseif key == "up" then
 		cam.zoom = cam.zoom * 1.5
-	elseif key == "f1" then
-		helpmsg = "addblossom"
-	elseif key == "f12" then
-		if SPEEDUP then
-			SPEEDUP = false
+	else -- check for commands
+
+		if key == currentmode then
+			if editmodes[key].activate then
+				Gamestate.switch(waiting)
+				currentmode = ""
+			else -- cycle
+				local next = editmodes[key].command + 1
+				if next > #editmodes[key].commands then
+					editmodes[key].command = 1
+				else
+					editmodes[key].command = next
+				end
+			end
 		else
-			SPEEDUP = true
-		end
-	elseif key == "f11" then
-		if DRAWGROUND then
-			DRAWGROUND = false
-		else
-			DRAWGROUND = true
-		end
-	elseif key == "f10" then
-		if DRAWPHYSICS then
-			DRAWPHYSICS = false
-		else
-			DRAWPHYSICS = true
-		end
-	elseif key == "f9" then
-		if DRAWPLANTS then
-			DRAWPLANTS = false
-		else
-			DRAWPLANTS = true
+			if editmodes[key] ~= nil then
+				currentmode = key
+				editmodes[key].command = 1
+				if editmodes[key].activate then
+					Gamestate.switch(_G[editmodes[key].commands[1]])
+				end
+
+			end
 		end
 	end
+
+
 
 end
