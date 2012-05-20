@@ -34,6 +34,7 @@ local GS = {}
 function GS.new()
 	return {
 		init             = __NULL__,
+		test             = __NULL__,
 		enter            = __NULL__,
 		leave            = __NULL__,
 		update           = __NULL__,
@@ -47,6 +48,26 @@ function GS.new()
 		joystickreleased = __NULL__,
 		quit             = __NULL__,
 	}
+end
+
+function GS.testSwitchOnly(to, ...)
+	if to ~= current then
+		return GS.testSwitch(to, ...)
+	end
+end
+
+function GS.testSwitch(to, ...)
+	assert(to, "Missing argument: Gamestate to switch to")
+	if to:test(...) then
+		GS.switch(to, ...)
+		return true
+	end
+end
+
+function GS.switchOnly(to, ...)
+	if to ~= current then
+		return GS.switch(to, ...)
+	end
 end
 
 function GS.switch(to, ...)

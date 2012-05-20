@@ -26,34 +26,35 @@ editmodes =
 	},
 	f2 = 
 	{
+		onmouse = "l",
 		commands = 
 		{
 			"addstem",
-			"editstem",
+			"addblossom",
 		},
 	},
 	f3 = 
 	{
+		onmousetest = "l",
 		commands = 
 		{
-			"addblossom",
-			"editblossom",
+			"edit",
 		},
 	},
-	f4 = 
-	{
-		activate = true,
-		commands = 
-		{
-			"reset",
-		},
-	},
-	s = 
+	f8 = 
 	{
 		activate = true,
 		commands = 
 		{
 			"save",
+		},
+	},
+	f12 = 
+	{
+		activate = true,
+		commands = 
+		{
+			"reset",
 		},
 	},
 }
@@ -185,37 +186,47 @@ function open:mousereleased(x,y,btn)
 	-- helpmsg = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
 end
 
-editstem = Gamestate.new()
-	
-function editstem:init()
+
+edit = Gamestate.new()
+
+function edit:init()
+
 end
 
-function editstem:enter(previous)
+function edit:test(x,y,btn)
+	local stem, vert = self:getClickedStem(x,y)
+
+	if stem then
+		return true
+	end
+end
+
+function edit:enter(previous, x, y, btn)
+	self.dragstem, self.dragvert = self:getClickedStem(x,y)
 	helpmsg = "release button when done"
+
 end
 
-function editstem:mousepressed(x,y,btn)
+function edit:getClickedStem(x,y)
 	for i,stem in ipairs(data[currentstate].stems) do
 		
 		local vdist = vector(stem[1]) - vector(cam:worldCoords(x,y))
 		if vdist:len() < 5 then 
-			self.dragstem = i
-			self.dragvert = 1
-			return
+			return i, 1
 		end 
 
 		vdist = vector(stem[2]) - vector(cam:worldCoords(x,y))
 		if vdist:len() < 5 then 
 			self.dragstem = i
 			self.dragvert = 2
-			return
+			return i, 2
 		end 
 
 
 	end
 end
 
-function editstem:mousereleased(x,y,btn)
+function edit:mousereleased(x,y,btn)
 	--copy the data forward
 
 
@@ -237,7 +248,7 @@ function editstem:mousereleased(x,y,btn)
 
 end
 
-function editstem:update(dt)
+function edit:update(dt)
 	if self.dragstem and self.dragvert then
 		data[currentstate].stems[self.dragstem][self.dragvert] = { cam:worldCoords(love.mouse.getPosition()) } 
 	end
@@ -370,12 +381,12 @@ function waiting:enter(previous)
 end
 
 function waiting:mousereleased(x, y, btn)
-	if btn == "r" then 
-		currentmode = currentmode + 1
-		if currentmode > table.maxn(editmodes) then
-			currentmode = 1
-		end
-	end
+	-- if btn == "r" then 
+	-- 	currentmode = currentmode + 1
+	-- 	if currentmode > table.maxn(editmodes) then
+	-- 		currentmode = 1
+	-- 	end
+	-- end
 end
 
 function waiting:keypressed(key)
@@ -430,9 +441,12 @@ addstem = Gamestate.new()
 function addstem:init() -- run only once
 end
 
-function addstem:enter(previous) -- run every time the state is entered
-	self.clicks = {}
 
+
+function addstem:enter(previous, x, y, btn) -- run every time the state is entered
+	self.clicks = {}
+	print('ENTER ADDSTEM')
+	--self:mousereleased(x,y,btn)
 end
 
 function addstem:draw()
@@ -444,6 +458,9 @@ function addstem:draw()
 	cam:detach()
 end
 
+function addstem:update(dt)
+	print('addstem')
+end
 
 function addstem:mousereleased(x,y, mouse_btn)
 	local click = { cam:worldCoords(x,y) }
@@ -465,7 +482,7 @@ function addstem:mousereleased(x,y, mouse_btn)
 		end
 
 		helpmsg = "none"
-
+		print("WHYYYYYYYYYYYY")
 		Gamestate.switch(waiting)
 	else
 		helpmsg = "waitforclick"
@@ -548,23 +565,27 @@ function love.draw()
 	gui.core.draw()
 end
 
-function love.update(dt)
-	--gui.group.push{grow = "up", pos = {5, 800}}
-	gui.Button{ text = "TEST", pos = {5,765}}
-	--gui.group.pop()
-end
-
 zoomfactor = 1.2
 minzoom = 0.5
 maxzoom = 5
 
+local dragpos = nil
 
 function love.mousepressed(x, y, button)
-	if helpmsg == "none" then
-		if button == "l" then
 
+	local mode = editmodes[currentmode]
+
+	if mode then
+		if mode.onmouse == button then
+			Gamestate.switchOnly( _G[mode.commands[ mode.command or 1 ]], x, y, button)
+			return
+		elseif mode.onmousetest == button then
+			if Gamestate.testSwitchOnly(_G[mode.commands[ mode.command or 1 ]], x, y, button) then -- we're dragging the window
+				return
+			end
 		end
 	end
+	--if no input used then default controls
 
 	if button == "wd" then
 		cam.zoom = math.max( cam.zoom / zoomfactor, minzoom )
@@ -572,8 +593,36 @@ function love.mousepressed(x, y, button)
 	elseif button == "wu" then
 		--print("wheel up")
 		cam.zoom = math.min( cam.zoom * zoomfactor, maxzoom )
+	elseif button == "r" then
+		dragpos = vector( x, y )
+		love.mouse.setGrab(true)
 	end
 
+end
+
+function love.mousereleased(x, y, button)
+	if dragpos then
+		dragpos = nil
+		love.mouse.setGrab(false)
+	end
+
+end
+
+function love.update(dt)
+	--gui.group.push{grow = "up", pos = {5, 800}}
+	gui.Button{ text = "TEST", pos = {5,765}}
+	--gui.group.pop()
+
+	if dragpos then
+		--print("dragging")
+		local mouse = vector( love.mouse.getPosition() )
+
+		local diff = (mouse - dragpos) * ( 1 / cam.zoom )
+		local dx, dy = diff:unpack()
+
+		cam:move( -dx, -dy )
+		dragpos = mouse
+	end
 end
 
 function love.keyreleased( key, unicode )
