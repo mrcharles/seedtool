@@ -98,6 +98,37 @@ function openfile(name)
 	end
 end
 
+function getClickedStem(x,y)
+	if data[currentstate].stems then
+
+		for i,stem in ipairs(data[currentstate].stems) do
+		
+			if not stem.parent then	
+
+				local vdist = vector(stem[1]) - vector(cam:worldCoords(x,y))
+				if vdist:len() < 5 then 
+					return i, 1
+				end 
+
+				vdist = vector(stem[2]) - vector(cam:worldCoords(x,y))
+				if vdist:len() < 5 then 
+					return i, 2
+				end 
+			end
+
+		end
+	end
+end
+
+function getStemPosition( stem )
+	if stem.parent ~= nil then --parented
+		local stems = assert( data[currentstate].stems, "invalid parent" )
+		return { stems[stem.parent][stem.idx][1], stems[stem.parent][stem.idx][2] }
+	end
+
+	return { stem[1], stem[2] }
+end
+
 open = Gamestate.new()
 
 
@@ -194,7 +225,7 @@ function edit:init()
 end
 
 function edit:test(x,y,btn)
-	local stem, vert = self:getClickedStem(x,y)
+	local stem, vert = getClickedStem(x,y)
 
 	if stem then
 		return true
@@ -202,29 +233,11 @@ function edit:test(x,y,btn)
 end
 
 function edit:enter(previous, x, y, btn)
-	self.dragstem, self.dragvert = self:getClickedStem(x,y)
+	self.dragstem, self.dragvert = getClickedStem(x,y)
 	helpmsg = "release button when done"
 
 end
 
-function edit:getClickedStem(x,y)
-	for i,stem in ipairs(data[currentstate].stems) do
-		
-		local vdist = vector(stem[1]) - vector(cam:worldCoords(x,y))
-		if vdist:len() < 5 then 
-			return i, 1
-		end 
-
-		vdist = vector(stem[2]) - vector(cam:worldCoords(x,y))
-		if vdist:len() < 5 then 
-			self.dragstem = i
-			self.dragvert = 2
-			return i, 2
-		end 
-
-
-	end
-end
 
 function edit:mousereleased(x,y,btn)
 	--copy the data forward
@@ -438,31 +451,51 @@ function addblossom:mousereleased(x,y,btn)
 end
 
 addstem = Gamestate.new()
+
 function addstem:init() -- run only once
 end
-
-
 
 function addstem:enter(previous, x, y, btn) -- run every time the state is entered
 	self.clicks = {}
 	print('ENTER ADDSTEM')
+	--see if we hit an existing stem in order to parent
+
+	local stem, idx = getClickedStem(x,y)
+
+	if stem then
+		print("ZOMG")
+		local click = { parent = stem, idx = idx }
+		table.insert( self.clicks, click )
+		self.parenting = true
+	end
 	--self:mousereleased(x,y,btn)
 end
 
 function addstem:draw()
 	cam:attach()
 	if self.clicks[1] ~= nil then
-		love.graphics.setColor(stemcolor)
-		love.graphics.circle( "fill", self.clicks[1][1], self.clicks[1][2], stempointsize)
+		if self.clicks[1].parent then
+			love.graphics.setColor(255,255,255)
+		else
+			love.graphics.setColor(stemcolor)
+		end
+		local stempos = getStemPosition(self.clicks[1])
+		love.graphics.circle( "fill", stempos[1], stempos[2], stempointsize)
 	end
 	cam:detach()
 end
 
 function addstem:update(dt)
-	print('addstem')
+	if self.parentstem then
+
+	end
 end
 
 function addstem:mousereleased(x,y, mouse_btn)
+	if self.parenting then
+		self.parenting = nil
+		return
+	end
 	local click = { cam:worldCoords(x,y) }
 	table.insert( self.clicks, click )
 
@@ -525,9 +558,11 @@ function love.draw()
 		if data[currentstate].stems then
 			for i,stem in ipairs(data[currentstate].stems) do
 				love.graphics.setColor(stemcolor)
-				love.graphics.circle("fill", stem[1][1], stem[1][2], stempointsize)
-				love.graphics.circle("fill", stem[2][1], stem[2][2], stempointsize)
-				love.graphics.line(stem[1][1], stem[1][2], stem[2][1], stem[2][2])
+				local stemstart = getStemPosition( stem[1] )
+				love.graphics.circle("fill", stemstart[1], stemstart[2], stempointsize)
+				local stemend = getStemPosition( stem[2] )
+				love.graphics.circle("fill", stemend[1], stemend[2], stempointsize)
+				love.graphics.line(stemstart[1], stemstart[2], stemend[1], stemend[2])
 			end
 		end
 
@@ -646,7 +681,10 @@ function love.keyreleased( key, unicode )
 	-- elseif key == "down" then
 	-- 	cam.zoom = cam.zoom / 1.5
 	-- elseif key == "up" then
-	-- 	cam.zoom = cam.zoom * 1.5
+	-- 	cam.zoom = cam.zoom * 1.50	
+	elseif key == "x" then
+		cam.x = 0
+		cam.y = 0
 	else -- check for commands
 
 		if key == currentmode then
