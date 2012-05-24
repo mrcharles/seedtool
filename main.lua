@@ -15,56 +15,122 @@ blossomcolor = { 0, 255, 0 }
 blossompointsize = 4
 
 
+editorstate = {
+	keybinds = 
+	{
 
-editmodes = 
-{
+		f1 = 
+		{
+			activate = true,
+			commands = { "open" },
+		},
+		f2 = 
+		{
+			onmouse = "l",
+			commands = 
+			{
+				"addstem",
+				"addblossom",
+			},
+		},
+		f3 = 
+		{
+			onmousetest = "l",
+			commands = 
+			{
+				"edit",
+			},
+		},
+		f8 = 
+		{
+			activate = true,
+			commands = 
+			{
+				"save",
+			},
+		},
+		f12 = 
+		{
+			activate = true,
+			commands = 
+			{
+				"reset",
+			},
+		},
+	},
 
-	f1 = 
+	submodes = 
 	{
-		activate = true,
-		commands = { "open" },
-	},
-	f2 = 
-	{
-		onmouse = "l",
-		commands = 
+		edit = 
 		{
-			"addstem",
-			"addblossom",
-		},
+			"vertex",
+			"tree"
+		}
 	},
-	f3 = 
-	{
-		onmousetest = "l",
-		commands = 
-		{
-			"edit",
-		},
-	},
-	f8 = 
-	{
-		activate = true,
-		commands = 
-		{
-			"save",
-		},
-	},
-	f12 = 
-	{
-		activate = true,
-		commands = 
-		{
-			"reset",
-		},
-	},
+
+
+	currentmode = "",
+	currentkey = "",
+
+	helpmsg = "none"
+
 }
 
+function editorstate:toggleCurrent(bind)
+	if bind.activate then
+		Gamestate.switch(waiting)
+		self.currentkey = ""
+	else -- cycle
+		local next = bind.command + 1
+		if next > #bind.commands then
+			bind.command = 1
+		else
+			bind.command = next
+		end
+	end		
+end
 
-currentmode = ""
+function editorstate:setNewKey(key)
+	if self.keybinds[key] ~= nil then
+		self.currentkey = key
+		self.keybinds[key].command = 1
+		if self.keybinds[key].activate then
+			Gamestate.switch(_G[self.keybinds[key].commands[1]])
+		end
 
-helpmsg = "none"
+	end
+end
 
-local states = 3
+function editorstate:handleKey(key)
+	if key == self.currentkey then
+		self:toggleCurrent(self.keybinds[key])
+	else
+		self:setNewKey(key)
+	end
+end
+
+function editorstate:draw()
+	love.graphics.setColor(0,0,0)
+
+	love.graphics.push()
+	for k,editmode in pairs(self.keybinds) do
+		if k == self.currentkey then
+			love.graphics.setColor(255, 0, 0)
+		else
+			love.graphics.setColor(0,0,0)
+		end
+
+
+		love.graphics.printf( k..": "..editmode.commands[editmode.command or 1], 50, 20, 700)
+		love.graphics.translate(100, 0)
+	end
+	love.graphics.pop()
+
+	--love.graphics.printf( "Editmode: "..keybinds[currentkey], 50, 40, 700)
+	love.graphics.printf( "helpmsg: "..self.helpmsg, 50, 60, 700 )
+end
+
+
 local statenames = {
 	"baby",
 	"young",
@@ -77,11 +143,11 @@ local planttypes =
 	"bush",
 	"flower",
 	"tree"
-
 }
 
 local planttype = "flower"
 local currentstate = 1
+
 data = {}
 
 local plantSprite = nil
@@ -130,8 +196,6 @@ function getStemPosition( stem )
 end
 
 open = Gamestate.new()
-
-
 
 function open:init()
 
@@ -188,7 +252,6 @@ function open:keyreleased(key)
 		if plantSprite == nil or self.notsure then
 			openfile(self.files[self.fileindex])
 			Gamestate.switch(waiting)
-			--currentmode = currentmode + 1 
 		else
 			self.notsure = true
 			helpmsg = "WARNING: SWITCHING FILES WILL WIPE ALL YOUR CHANGES. ENTER TO CONTINUE, SPACE TO CANCEL"
@@ -203,18 +266,7 @@ function open:keyreleased(key)
 end
 
 function open:mousereleased(x,y,btn)
-	-- if btn == "l" then
-	-- 	self.fileindex = self.fileindex + 1
-	-- 	if self.fileindex > #self.files then
-	-- 		self.fileindex = 1
-	-- 	end
-	-- elseif btn == "r" then
-	-- 	self.fileindex = self.fileindex - 1
-	-- 	if self.fileindex < 1 then
-	-- 		self.fileindex = #self.files
-	-- 	end
-	-- end		
-	-- helpmsg = "cycle file with mousebuttons: ".. self.files[self.fileindex] .. " enter to confirm, space to cancel"
+
 end
 
 
@@ -244,7 +296,7 @@ function edit:mousereleased(x,y,btn)
 
 
 	if self.dragstem and self.dragvert then
-		for i=currentstate+1,states do
+		for i=currentstate+1,#statenames do
 			if data[i] ~= nil then
 				if data[i].stems == nil then
 					data[i].stems = {}
@@ -294,7 +346,7 @@ end
 
 function editblossom:mousereleased(x,y,btn)
 	--copy the data forward
-	for i=currentstate+1,states do
+	for i=currentstate+1,#statenames do
 		if data[i] then
 			if data[i].blossompoints == nil then
 				data[i].blossompoints = {}
@@ -325,7 +377,7 @@ end
 
 function save:enter(previous)
 	--add in our sprite and animation names
-	for i=1,states do
+	for i=1,#statenames do
 		data[i].sprite = string.format("%s_%s", planttype, plantid)
 		data[i].anim = string.format("%s_%s", planttype, statenames[i])
 	end
@@ -394,27 +446,14 @@ function waiting:enter(previous)
 end
 
 function waiting:mousereleased(x, y, btn)
-	-- if btn == "r" then 
-	-- 	currentmode = currentmode + 1
-	-- 	if currentmode > table.maxn(editmodes) then
-	-- 		currentmode = 1
-	-- 	end
-	-- end
+
 end
 
 function waiting:keypressed(key)
 end
 
 function waiting:mousepressed(x,y, btn)
-	-- if btn == "l" then 
-	-- 	Gamestate.switch(_G[editmodes[currentmode]])
-	-- 	if editmodes[currentmode] == "editstem" then
-	-- 		editstem:mousepressed(x,y,btn)
-	-- 	end
-	-- 	if editmodes[currentmode] == "editblossom" then
-	-- 		editblossom:mousepressed(x,y,btn)
-	-- 	end
-	-- end
+
 end
 
 addblossom = Gamestate.new()
@@ -437,7 +476,7 @@ function addblossom:mousereleased(x,y,btn)
 	table.insert(data[currentstate].blossompoints, stuff)
 
 	--copy forward, only if it exists, otherwise it'll happen elsehwere
-	for i=currentstate + 1,states do
+	for i=currentstate + 1,#statenames do
 		if data[i] then
 			if data[i].blossompoints == nil then
 				data[i].blossompoints = {}
@@ -507,7 +546,7 @@ function addstem:mousereleased(x,y, mouse_btn)
 		table.insert( data[currentstate].stems, self.clicks )
 
 		--copy forward, only if it exists, otherwise it'll happen elsehwere
-		for i=currentstate + 1,states do
+		for i=currentstate + 1,#statenames do
 			if data[i] then
 				data[i].stems = {}
 				table.insert(data[i].stems, copytable(self.clicks))
@@ -577,25 +616,7 @@ function love.draw()
 	cam:detach()
 
 	--draw help text
-
-	love.graphics.setColor(0,0,0)
-
-	love.graphics.push()
-	for k,editmode in pairs(editmodes) do
-		if k == currentmode then
-			love.graphics.setColor(255, 0, 0)
-		else
-			love.graphics.setColor(0,0,0)
-		end
-
-
-		love.graphics.printf( k..": "..editmode.commands[editmode.command or 1], 50, 20, 700)
-		love.graphics.translate(100, 0)
-	end
-	love.graphics.pop()
-
-	--love.graphics.printf( "Editmode: "..editmodes[currentmode], 50, 40, 700)
-	love.graphics.printf( "helpmsg: "..helpmsg, 50, 60, 700 )
+	editorstate:draw()
 
 	gui.core.draw()
 end
@@ -608,7 +629,7 @@ local dragpos = nil
 
 function love.mousepressed(x, y, button)
 
-	local mode = editmodes[currentmode]
+	local mode = keybinds[currentkey]
 
 	if mode then
 		if mode.onmouse == button then
@@ -663,7 +684,7 @@ end
 function love.keyreleased( key, unicode )
 	if key == "right" and plantSprite then
 		currentstate = currentstate + 1
-		if currentstate > states then
+		if currentstate > #statenames then
 			currentstate = 1
 		end
 		if data[currentstate] == nil then
@@ -676,7 +697,7 @@ function love.keyreleased( key, unicode )
 	-- elseif key == "left" then
 	-- 	currentstate = currentstate - 1
 	-- 	if currentstate < 1 then
-	-- 		currentstate = states
+	-- 		currentstate = #statenames
 	-- 	end
 	-- elseif key == "down" then
 	-- 	cam.zoom = cam.zoom / 1.5
@@ -686,29 +707,7 @@ function love.keyreleased( key, unicode )
 		cam.x = 0
 		cam.y = 0
 	else -- check for commands
-
-		if key == currentmode then
-			if editmodes[key].activate then
-				Gamestate.switch(waiting)
-				currentmode = ""
-			else -- cycle
-				local next = editmodes[key].command + 1
-				if next > #editmodes[key].commands then
-					editmodes[key].command = 1
-				else
-					editmodes[key].command = next
-				end
-			end
-		else
-			if editmodes[key] ~= nil then
-				currentmode = key
-				editmodes[key].command = 1
-				if editmodes[key].activate then
-					Gamestate.switch(_G[editmodes[key].commands[1]])
-				end
-
-			end
-		end
+		editorstate:handleKey(key)
 	end
 
 
