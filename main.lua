@@ -70,16 +70,46 @@ editorstate = {
 
 
 	currentmode = "",
+	currentsubmode = 1,
 	currentkey = "",
 
 	helpmsg = "none"
 
 }
 
+
+function editorstate:cycleSubmode( )
+	local submode = self.submodes[self.currentmode]
+
+	if submode then
+		self.currentsubmode = self.currentsubmode + 1
+		if self.currentsubmode > #submode then
+			self.currentsubmode = 1
+		end
+	end
+end
+
+function editorstate:submode()
+	local submode = self.submodes[self.currentmode]
+	if submode then
+		return submode[self.currentsubmode]
+	end
+end
+
+function editorstate:disableCurrent()
+	local bind = self.keybinds[self.currentkey]
+	if bind and bind.activate then
+		Gamestate.switch(waiting)
+		self.currentkey = ""
+		self.currentmode = ""
+	end
+end
+
 function editorstate:toggleCurrent(bind)
 	if bind.activate then
 		Gamestate.switch(waiting)
 		self.currentkey = ""
+		self.currentmode = ""
 	else -- cycle
 		local next = bind.command + 1
 		if next > #bind.commands then
@@ -87,13 +117,20 @@ function editorstate:toggleCurrent(bind)
 		else
 			bind.command = next
 		end
+		self.currentmode = bind.commands[bind.command]
+		self.currentsubmode = 1
+
 	end		
 end
 
 function editorstate:setNewKey(key)
 	if self.keybinds[key] ~= nil then
+		self:disableCurrent()
 		self.currentkey = key
 		self.keybinds[key].command = 1
+		self.currentmode = self.keybinds[key].commands[1]
+		self.currentsubmode = 1
+		
 		if self.keybinds[key].activate then
 			Gamestate.switch(_G[self.keybinds[key].commands[1]])
 		end
@@ -101,8 +138,26 @@ function editorstate:setNewKey(key)
 	end
 end
 
+function editorstate:handleMouse(x,y,button)
+	local mode = self.keybinds[self.currentkey]
+
+	if mode then
+		if mode.onmouse == button then
+			Gamestate.switchOnly( _G[mode.commands[ mode.command or 1 ]], x, y, button)
+			return true
+		elseif mode.onmousetest == button then
+			if Gamestate.testSwitchOnly(_G[mode.commands[ mode.command or 1 ]], x, y, button) then -- we're dragging the window
+				return true
+			end
+		end
+	end
+
+end
+
 function editorstate:handleKey(key)
-	if key == self.currentkey then
+	if key == " " then -- this cycles active modes
+		self:cycleSubmode()
+	elseif key == self.currentkey then
 		self:toggleCurrent(self.keybinds[key])
 	else
 		self:setNewKey(key)
@@ -116,12 +171,16 @@ function editorstate:draw()
 	for k,editmode in pairs(self.keybinds) do
 		if k == self.currentkey then
 			love.graphics.setColor(255, 0, 0)
+			local submode = self:submode()
+			if submode then
+				love.graphics.printf( "> "..submode, 57, 40, 700 )
+			end
 		else
 			love.graphics.setColor(0,0,0)
 		end
 
-
 		love.graphics.printf( k..": "..editmode.commands[editmode.command or 1], 50, 20, 700)
+
 		love.graphics.translate(100, 0)
 	end
 	love.graphics.pop()
@@ -496,13 +555,11 @@ end
 
 function addstem:enter(previous, x, y, btn) -- run every time the state is entered
 	self.clicks = {}
-	print('ENTER ADDSTEM')
-	--see if we hit an existing stem in order to parent
 
+	--see if we hit an existing stem in order to parent
 	local stem, idx = getClickedStem(x,y)
 
 	if stem then
-		print("ZOMG")
 		local click = { parent = stem, idx = idx }
 		table.insert( self.clicks, click )
 		self.parenting = true
@@ -554,7 +611,6 @@ function addstem:mousereleased(x,y, mouse_btn)
 		end
 
 		helpmsg = "none"
-		print("WHYYYYYYYYYYYY")
 		Gamestate.switch(waiting)
 	else
 		helpmsg = "waitforclick"
@@ -629,17 +685,9 @@ local dragpos = nil
 
 function love.mousepressed(x, y, button)
 
-	local mode = keybinds[currentkey]
 
-	if mode then
-		if mode.onmouse == button then
-			Gamestate.switchOnly( _G[mode.commands[ mode.command or 1 ]], x, y, button)
-			return
-		elseif mode.onmousetest == button then
-			if Gamestate.testSwitchOnly(_G[mode.commands[ mode.command or 1 ]], x, y, button) then -- we're dragging the window
-				return
-			end
-		end
+	if editorstate:handleMouse(x,y,button) then
+		return
 	end
 	--if no input used then default controls
 
@@ -694,15 +742,6 @@ function love.keyreleased( key, unicode )
 		end
 
 		plantSprite:setAnimation(planttype.. "_"..statenames[currentstate])
-	-- elseif key == "left" then
-	-- 	currentstate = currentstate - 1
-	-- 	if currentstate < 1 then
-	-- 		currentstate = #statenames
-	-- 	end
-	-- elseif key == "down" then
-	-- 	cam.zoom = cam.zoom / 1.5
-	-- elseif key == "up" then
-	-- 	cam.zoom = cam.zoom * 1.50	
 	elseif key == "x" then
 		cam.x = 0
 		cam.y = 0
