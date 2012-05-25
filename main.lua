@@ -625,6 +625,13 @@ function addstem:update(dt)
 	end
 end
 
+function addstem:keyreleased(key, unicode)
+	if key == "escape" then
+		self.clicks = nil
+		Gamestate.switch(waiting)
+	end
+end
+
 function addstem:mousereleased(x,y, mouse_btn)
 	if self.parenting then
 		self.parenting = nil
