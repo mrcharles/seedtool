@@ -402,14 +402,12 @@ function edit:update(dt)
 			--iterate through all stems parented to this one and apply the offset to the one above them. this is a bad comment.
 			self:adjustTree(self.dragstem, self.dragvert, delta)
 			--oh, and adjust the other vert on this stem if it's above us
-			if othervertpos.y < oldpos.y then
+			if othervert.parent == nil and othervertpos.y < oldpos.y then
 				othervert[1] = othervert[1] + delta.x
 				othervert[2] = othervert[2] + delta.y
 				--and of course adjust any tree parented to this one
 				self:adjustTree( self.dragstem, 3 - self.dragvert, delta)
 			end				
-
-
 
 		end
 
