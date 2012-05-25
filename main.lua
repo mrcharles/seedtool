@@ -345,6 +345,8 @@ end
 
 function edit:enter(previous, x, y, btn)
 	self.dragstem, self.dragvert = getClickedStem(x,y)
+
+	print( string.format("moving vert (%d, %d)",self.dragstem, self.dragvert))
 	helpmsg = "release button when done"
 
 end
@@ -372,8 +374,45 @@ function edit:mousereleased(x,y,btn)
 
 end
 
+function edit:adjustTree(stemid, vert, delta)
+	for i,stem in ipairs(data[currentstate].stems) do
+		if stem[1].parent == stemid and stem[1].idx == vert then 
+			stem[2][1] = stem[2][1] + delta.x
+			stem[2][2] = stem[2][2] + delta.y
+			self:adjustTree(i, 2, delta)
+		elseif stem[2].parent == stemid and stem[2].idx == vert then 
+			stem[1][1] = stem[1][1] + delta.x
+			stem[1][2] = stem[1][2] + delta.y
+
+			self:adjustTree(i, 1, delta)
+		end
+	end
+
+end
+
 function edit:update(dt)
 	if self.dragstem and self.dragvert then
+
+		if editorstate:submode() == "tree" then
+			local oldpos = vector( data[currentstate].stems[self.dragstem][self.dragvert] )
+			local othervert = data[currentstate].stems[self.dragstem][ 3 - self.dragvert ]
+			local othervertpos = vector( othervert )
+			local delta = vector( cam:worldCoords(love.mouse.getPosition()) ) - oldpos
+
+			--iterate through all stems parented to this one and apply the offset to the one above them. this is a bad comment.
+			self:adjustTree(self.dragstem, self.dragvert, delta)
+			--oh, and adjust the other vert on this stem if it's above us
+			if othervertpos.y < oldpos.y then
+				othervert[1] = othervert[1] + delta.x
+				othervert[2] = othervert[2] + delta.y
+				--and of course adjust any tree parented to this one
+				self:adjustTree( self.dragstem, 3 - self.dragvert, delta)
+			end				
+
+
+
+		end
+
 		data[currentstate].stems[self.dragstem][self.dragvert] = { cam:worldCoords(love.mouse.getPosition()) } 
 	end
 end
@@ -561,6 +600,7 @@ function addstem:enter(previous, x, y, btn) -- run every time the state is enter
 
 	if stem then
 		local click = { parent = stem, idx = idx }
+		print( string.format( "New stem will be parented to (%d, %d)", stem, idx))
 		table.insert( self.clicks, click )
 		self.parenting = true
 	end
