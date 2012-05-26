@@ -186,7 +186,7 @@ function editorstate:draw()
 	love.graphics.pop()
 
 	--love.graphics.printf( "Editmode: "..keybinds[currentkey], 50, 40, 700)
-	love.graphics.printf( "helpmsg: "..self.helpmsg, 50, 60, 700 )
+	love.graphics.printf( "helpmsg: "..helpmsg, 50, 60, 700 )
 end
 
 
@@ -218,8 +218,17 @@ function openfile(name)
 	print( planttype.. "_".. plantid)
 	plantSprite = spritemanager.createSprite(planttype.."_"..plantid, planttype.."_baby")
 
-	for i=1,4 do
-		data[1] = {}
+	--see if we have existing data and load it up
+	local name = planttype.. "_" .. plantid .. "_data.lua"
+
+	if love.filesystem.isFile(name) then
+
+		data = savevariables.load(name)
+
+	else
+		for i=1,4 do
+			data[1] = {}
+		end
 	end
 end
 
@@ -352,24 +361,23 @@ function edit:enter(previous, x, y, btn)
 end
 
 
+
 function edit:mousereleased(x,y,btn)
 	--copy the data forward
+	-- if self.dragstem and self.dragvert then
+	-- 	for i=currentstate+1,#statenames do
+	-- 		if data[i] ~= nil then
+	-- 			if data[i].stems == nil then
+	-- 				data[i].stems = {}
+	-- 			end
+	-- 			data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
+	-- 			data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
+	-- 		end
+	-- 	end
 
-
-	if self.dragstem and self.dragvert then
-		for i=currentstate+1,#statenames do
-			if data[i] ~= nil then
-				if data[i].stems == nil then
-					data[i].stems = {}
-				end
-				data[i].stems[self.dragstem][self.dragvert][1] = data[currentstate].stems[self.dragstem][self.dragvert][1]
-				data[i].stems[self.dragstem][self.dragvert][2] = data[currentstate].stems[self.dragstem][self.dragvert][2]
-			end
-		end
-
-		self.dragstem = nil
-		self.dragvert = nil
-	end
+	-- 	self.dragstem = nil
+	-- 	self.dragvert = nil
+	-- end
 	Gamestate.switch(waiting)
 
 end
@@ -497,6 +505,7 @@ end
 
 function reset:enter(previous)
 	helpmsg = "PRESS SPACE TO RESET"
+	print("got reset enter")
 	self.notsure = true
 end
 
@@ -516,8 +525,10 @@ function reset:keyreleased(key)
 	if key == " " then
 		if self.notsure then 
 			helpmsg = "ARE YOU REALLY SURE? THIS DELETES ALL LATER STATES AS WELL. PRESS SPACE AGAIN"
+			print("got reset keyreleased but not sure")
 			self.notsure = false
 		else
+			print("got reset keyreleased SURE")
 			for i=currentstate,4 do
 				data[i] = nil
 			end

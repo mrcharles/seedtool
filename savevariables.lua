@@ -178,8 +178,6 @@ function load(filename)
 	if love.filesystem.isFile(filename) == true then
 		local chunk = love.filesystem.load(filename)
 		
-		if type(chunk) == "function" then
-			chunk()
-		end
+		return chunk()
 	end
 end
