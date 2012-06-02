@@ -326,9 +326,9 @@ function open:keyreleased(key)
 		end
 	elseif key == "esc" then
 		helpmsg = "cycle file with arrows, enter to confirm, esc to cancel"
-	elseif key == "up" or key == "right" then
+	elseif key == "down" or key == "right" then
 		self.fileindex = math.max( self.fileindex - 1, 1 )
-	elseif key == "down" or key == "left" then
+	elseif key == "up" or key == "left" then
 		self.fileindex = math.min( self.fileindex + 1, #self.files )
 	end
 end
@@ -569,17 +569,38 @@ function addblossom:init()
 
 end
 
-function addblossom:enter(previous)
+function addblossom:enter(previous, x, y, btn) -- run every time the state is entered
+	
+	--see if we hit an existing stem in order to parent
+	local stem, idx = getClickedStem(x,y)
 
+	if stem then
+		self.parentdata = { parent = stem, idx = idx }
+		print( string.format( "New blossom will be parented to (%d, %d)", stem, idx))
+		self.parenting = true
+	end
 end
 
 function addblossom:mousereleased(x,y,btn)
+
+	if self.parenting then
+		self.parenting = false
+		return
+	end
+
 	if data[currentstate].blossompoints == nil then
 		data[currentstate].blossompoints = {}
 
 	end
 
 	local stuff = {cam:worldCoords(x,y)}
+
+	if self.parentdata then
+		stuff.parent = self.parentdata.parent
+		stuff.idx = self.parentdata.idx
+		self.parentdata = nil
+	end
+	
 	table.insert(data[currentstate].blossompoints, stuff)
 
 	--copy forward, only if it exists, otherwise it'll happen elsehwere
@@ -595,6 +616,26 @@ function addblossom:mousereleased(x,y,btn)
 
 	Gamestate.switch(waiting)
 end
+
+function addblossom:keyreleased(key, unicode)
+	if key == "escape" then
+		self.parentdata = nil
+		Gamestate.switch(waiting)
+	end
+end
+
+
+function addblossom:draw()
+	cam:attach()
+	if self.parentdata ~= nil then
+		love.graphics.setColor(255,255,255)
+		local stempos = getStemPosition(self.parentdata)
+		love.graphics.circle( "fill", stempos[1], stempos[2], stempointsize)
+	end
+	cam:detach()
+
+end
+
 
 addstem = Gamestate.new()
 
@@ -713,6 +754,9 @@ function love.draw()
 				love.graphics.circle("fill", stemstart[1], stemstart[2], stempointsize)
 				local stemend = getStemPosition( stem[2] )
 				love.graphics.circle("fill", stemend[1], stemend[2], stempointsize)
+				local size = cam.zoom > 2 and 0.75 or 1
+				local style = size == 1 and "rough" or "smooth"
+				love.graphics.setLine( size, style )
 				love.graphics.line(stemstart[1], stemstart[2], stemend[1], stemend[2])
 			end
 		end
