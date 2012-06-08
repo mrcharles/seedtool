@@ -396,6 +396,12 @@ function edit:adjustTree(stemid, vert, delta)
 		end
 	end
 
+	for i, blossom in ipairs(data[currentstate].blossompoints) do
+		if blossom.parent ~= nil then
+			blossom[1] = blossom[1] + delta.x
+			blossom[2] = blossom[2] + delta.y
+		end
+	end
 end
 
 function edit:update(dt)
@@ -755,7 +761,7 @@ function love.draw()
 				local stemend = getStemPosition( stem[2] )
 				love.graphics.circle("fill", stemend[1], stemend[2], stempointsize)
 				local size = cam.zoom > 2 and 0.75 or 1
-				local style = size == 1 and "rough" or "smooth"
+				local style = "smooth" -- size == 1 and "rough" or "smooth"
 				love.graphics.setLine( size, style )
 				love.graphics.line(stemstart[1], stemstart[2], stemend[1], stemend[2])
 			end
