@@ -232,6 +232,22 @@ function openfile(name)
 	end
 end
 
+function getClickedBlossom(x,y)
+	if data[currentstate].blossompoints then
+
+		for i,blossom in ipairs(data[currentstate].blossompoints) do
+
+			print( string.format( "testing blossom %d, at %f, %f", i, blossom[1], blossom[2]))
+
+			local vdist = vector(blossom) - vector(cam:worldCoords(x,y))
+			if vdist:len() < 5 then 
+				return i
+			end 
+
+		end
+	end
+end
+
 function getClickedStem(x,y)
 	if data[currentstate].stems then
 
@@ -345,6 +361,13 @@ function edit:init()
 end
 
 function edit:test(x,y,btn)
+	--first test blossoms, as they will likely be on top and are the logical choice.
+	local blossom = getClickedBlossom(x, y)
+
+	if blossom then
+		return true
+	end
+
 	local stem, vert = getClickedStem(x,y)
 
 	if stem then
@@ -353,9 +376,16 @@ function edit:test(x,y,btn)
 end
 
 function edit:enter(previous, x, y, btn)
-	self.dragstem, self.dragvert = getClickedStem(x,y)
 
-	print( string.format("moving vert (%d, %d)",self.dragstem, self.dragvert))
+	self.dragblossom = getClickedBlossom(x,y)
+
+	if self.dragblossom == nil then
+
+		self.dragstem, self.dragvert = getClickedStem(x,y)
+		print( string.format("moving vert (%d, %d)",self.dragstem, self.dragvert))
+	else
+		print( string.format("moving blossom (%d)",self.dragblossom))
+	end
 	helpmsg = "release button when done"
 
 end
@@ -405,7 +435,11 @@ function edit:adjustTree(stemid, vert, delta)
 end
 
 function edit:update(dt)
-	if self.dragstem and self.dragvert then
+	if self.dragblossom then
+		local pos = { cam:worldCoords(love.mouse.getPosition()) }
+		data[currentstate].blossompoints[self.dragblossom][1] = pos[1]
+		data[currentstate].blossompoints[self.dragblossom][2] = pos[2]
+	elseif self.dragstem and self.dragvert then
 
 		if editorstate:submode() == "tree" then
 			local oldpos = vector( data[currentstate].stems[self.dragstem][self.dragvert] )
@@ -428,57 +462,6 @@ function edit:update(dt)
 		data[currentstate].stems[self.dragstem][self.dragvert] = { cam:worldCoords(love.mouse.getPosition()) } 
 	end
 end
-
-
-editblossom = Gamestate.new()
-	
-function editblossom:init()
-end
-
-function editblossom:enter()
-	helpmsg = "release button when done"
-end
-
-function editblossom:mousepressed(x,y,btn)
-	if data[currentstate].blossompoints then
-		for i,blossom in ipairs(data[currentstate].blossompoints) do
-			
-			local vdist = vector(blossom) - vector(cam:worldCoords(x,y))
-			if vdist:len() < 5 then 
-				self.dragblossom = i
-				return
-			end 
-
-
-		end
-	end
-end
-
-function editblossom:mousereleased(x,y,btn)
-	--copy the data forward
-	for i=currentstate+1,#statenames do
-		if data[i] then
-			if data[i].blossompoints == nil then
-				data[i].blossompoints = {}
-			end
-			data[i].blossompoints[self.dragblossom][1] = data[currentstate].blossompoints[self.dragblossom][1]
-			data[i].blossompoints[self.dragblossom][2] = data[currentstate].blossompoints[self.dragblossom][2]
-		end
-	end
-
-	self.dragblossom = nil
-
-	Gamestate.switch(waiting)
-
-end
-
-function editblossom:update(dt)
-	if self.dragblossom then
-		data[currentstate].blossompoints[self.dragblossom] = { cam:worldCoords(love.mouse.getPosition()) } 
-	end
-end
-
-
 
 save = Gamestate.new()
 
