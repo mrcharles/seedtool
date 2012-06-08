@@ -753,6 +753,14 @@ function love.draw()
 		if data[currentstate].blossompoints then
 			for i,bp in ipairs(data[currentstate].blossompoints) do
 				love.graphics.setColor(blossomcolor)
+
+				if bp.parent ~= nil then
+					local parentpos = getStemPosition(bp) -- I love lua
+					local size = cam.zoom > 2 and 0.75 or 1
+					local style = "smooth" -- size == 1 and "rough" or "smooth"
+					love.graphics.setLine( size, style )
+					love.graphics.line( bp[1], bp[2], parentpos[1], parentpos[2])
+				end
 				love.graphics.circle("fill", bp[1], bp[2], blossompointsize)
 			end
 		end
